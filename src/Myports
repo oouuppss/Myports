@@ -66,7 +66,7 @@ SavePortsDB(){
 					esac
 				done <"${port}/Pkgfile"
 			}
-			echo ${inf_} >> "${db}"
+			echo -e ${inf_} >> "${db}"
 		done
 	done
 }
@@ -99,6 +99,7 @@ UpdatePorts() {
 			}
 		done
 	}
+	ClearFiles
 	SavePortsDB
 }
 
@@ -135,7 +136,7 @@ GetPortsInfo(){
 							;;
 				esac
 				[ "${bool1}" -eq "1" ]  && {
-					echo "${line}"
+					echo -e "${line}"
 				}
 			done <$(echo ${PORTS_PKG_DB})
 			[ "${bool2}" -eq "0" ]  && {
