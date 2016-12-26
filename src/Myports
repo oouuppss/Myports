@@ -1,0 +1,170 @@
+#!/bin/sh
+#
+#  ports reloaded
+#
+#  Copyright (c) 2016 plop6
+#  Copyright (c) 2015 Thierry Nuttens
+#  Copyright (c) 2002-2004 Per Liden
+#
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+#  USA.
+#
+
+PORTS_DIR_PKG="/usr/ports"
+PORTS_DIR_INF="/etc/ports"
+PORTS_DIR_LIB="/var/lib/pkg"
+PORTS_DRIVERS="${PORTS_DIR_LIB}/drivers/cards"
+PORTS_PKG_DB="${PORTS_DIR_LIB}/nutyx-listports-*.db"
+PORTS_PARAMETERS=""
+
+for dir in "${PORTS_DIR_PKG}" "${PORTS_DIR_INF}" "${PORTS_DIR_LIB}"; do
+	[ ! -d "${dir}" ] && {
+		echo "Error: «${dir}» is not a valid directory. Exiting."
+		exit 1
+	}
+done
+
+ClearFiles(){
+	rm ${PORTS_PKG_DB}
+}
+
+PrintHelp() {
+        echo "\nusage: ${0##*/} [options] [collections]\n"
+        echo "options:"
+        echo "-u, --update, update	update collection(s) database"
+        echo "-l, --list, list		list available collections or ports in selected collection"
+        echo "-p, --print, print	print port info (from Pkfile)"
+	echo "-c, --clear, clear	remove existing ${PORTS_PKG_DB} files"
+	echo "-C, --create, create	create ports list info (from Pkfile)"
+	echo "-h, --help, help		print help and exit"
+}
+
+SavePortsDB(){
+	local inf_=""
+	local db="${PORTS_DIR_LIB}"/nutyx-listports-$(date +%s).db
+	for collection in "${PORTS_DIR_PKG}"/*; do
+		for port in "${collection}"/*; do
+			inf_=":::START:::${port##*/}:::${collection##*/}:::\n"
+			[ -e "${port}"/Pkgfile ] && {
+				while read line;do
+					case "${line}" in
+						"") continue ;;
+						source*) { inf_="${inf_}\n${line}\n\n:::END:::\n"; break; } ;;
+						*) inf_="${inf_}\n${line}" ;;
+					esac
+				done <"${port}/Pkgfile"
+			}
+			echo ${inf_} >> "${db}"
+		done
+	done
+}
+
+UpdatePorts() {
+        [ "`id -u`" != "0" ] && {
+                echo "${0##*/}: only root can update ports"
+                exit 1
+        }
+	[ ! -e "${PORTS_DRIVERS}" ] && [ ! -x "${PORTS_DRIVERS}" ] && {
+		echo "Could not find valid cards driver. Exiting."
+		exit 2
+	}
+	[ "${#PORTS_PARAMETERS}" -eq 0 ] && {
+		echo "No collection specified. Running full update."
+		for collection in "${PORTS_DIR_INF}"/*; do
+			echo "Updating « ${collection} » collection..."
+			echo "${PORTS_DRIVERS}" "${collection}"
+			echo " « ${collection} » has been updated."
+		done
+	} || {
+		for collection in ${PORTS_PARAMETERS}; do
+			echo "Updating « ${collection} » collection..."
+			[ -e "${PORTS_DIR_INF}/${collection##*/}.cards" ] && {
+				echo "${PORTS_DRIVERS}" "${PORTS_DIR_INF}/${collection##*/}.cards"
+				echo " « ${collection} » has been updated."
+			} ||
+			{
+				echo "« ${collection##*/}»  is not a valid collection, nothing to do."
+			}
+		done
+	}
+	SavePortsDB
+}
+
+ListPorts(){
+	[ "${#PORTS_PARAMETERS}" -eq 0 ] && {
+		ls "${PORTS_DIR_PKG}"/* 2>/dev/null
+	} ||
+	{
+		for collection in ${PORTS_PARAMETERS}; do
+			[ -e "${PORTS_DIR_PKG}/${collection##*/}" ] && {
+				echo "${PORTS_DIR_PKG}/${collection##*/}"
+				ls "${PORTS_DIR_PKG}/${collection##*/}" 2>/dev/null
+			} || {
+				echo "« ${collection##*/}»  is not a valid collection, nothing to do."
+			}
+		done
+	}
+}
+
+GetPortsInfo(){
+	[ "${#PORTS_PARAMETERS}" -gt 0 ] && {
+		for port in ${PORTS_PARAMETERS}; do
+			local bool1="0" bool2="0"
+			while read line; do
+				case "${line}" in
+					:::START:::"${port}"*)
+							bool1=1
+							bool2=1
+						 line="#####----------------#\n${line#*:::START:::}\n##\n#"
+							;;
+					:::END:::)
+							[ "${bool1}" -eq "1" ]  && { echo "#----------------##" ; }
+							bool1=0
+							;;
+				esac
+				[ "${bool1}" -eq "1" ]  && {
+					echo "${line}"
+				}
+			done <$(echo ${PORTS_PKG_DB})
+			[ "${bool2}" -eq "0" ]  && {
+				echo "« ${port##*/}»  is not a valid port, nothing to do."
+			}
+		done
+		return
+	}
+	echo "No Port specified, nothing to do"
+}
+
+main_(){
+		[ "$#" -gt 1 ] && {
+			PORTS_PARAMETERS="${@}"
+			PORTS_PARAMETERS="${PORTS_PARAMETERS#* }"
+		}
+		[ "$#" -eq 0 ] && {
+				echo "${0##*/}: Invalid option(s).\n\nTry « ${0##*/} --help » for info.\n"
+		}
+		case "${@##*-}" in
+			u*|update*) 	UpdatePorts "${PORTS_PARAMETERS}" ;;
+			l*|list*) 	ListPorts "${PORTS_PARAMETERS}" ;;
+			p*|print*)	GetPortsInfo "${PORTS_PARAMETERS}" ;;
+			h*|help*)	PrintHelp ;;
+			c*|clear*)	ClearFiles ;;
+			C*|create*)	SavePortsDB ;;
+			*)		echo "${0##*/}: Invalid option(s).\n\nTry « ${0##*/} --help » for info.\n" ;;
+		esac
+}
+
+main_ "${@}"
+exit 0
