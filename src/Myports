@@ -84,14 +84,14 @@ UpdatePorts() {
 		echo "No collection specified. Running full update."
 		for collection in "${PORTS_DIR_INF}"/*; do
 			echo "Updating « ${collection} » collection..."
-			echo "${PORTS_DRIVERS}" "${collection}"
+			"${PORTS_DRIVERS}" "${collection}"
 			echo " « ${collection} » has been updated."
 		done
 	} || {
 		for collection in ${PORTS_PARAMETERS}; do
 			echo "Updating « ${collection} » collection..."
 			[ -e "${PORTS_DIR_INF}/${collection##*/}.cards" ] && {
-				echo "${PORTS_DRIVERS}" "${PORTS_DIR_INF}/${collection##*/}.cards"
+				"${PORTS_DRIVERS}" "${PORTS_DIR_INF}/${collection##*/}.cards"
 				echo " « ${collection} » has been updated."
 			} ||
 			{
