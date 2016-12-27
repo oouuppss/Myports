@@ -159,7 +159,7 @@ main_(){
 			p*|print*)	GetPortsInfo "${PORTS_PARAMETERS}" ;;
 			h*|help*)	PrintHelp ;;
 			c*|clear*)	ClearFiles ;;
-			C*|create*)	SavePortsDB ;;
+			C*|create*)	ClearFiles && SavePortsDB ;;
 			*)		echo "${0##*/}: Invalid option(s).\n\nTry « ${0##*/} --help » for info.\n" ;;
 		esac
 }
