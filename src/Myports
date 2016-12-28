@@ -55,7 +55,7 @@ SavePortsDB(){
     local db="${PORTS_DIR_LIB}"/nutyx-listports-$(date +%s).db
     for collection in "${PORTS_DIR_PKG}"/*; do
         for port in "${collection}"/*; do
-            inf_=":::START:::${port##*/}:::${collection##*/}:::\n"
+            inf_=":::START:::${port##*/}:::${collection##*/}\n"
             [ -e "${port}"/Pkgfile ] && {
                 while read line;do
                     case "${line}" in
@@ -121,25 +121,40 @@ ListPorts(){
 GetPortsInfo(){
     [ "${#PORTS_PARAMETERS}" -gt 0 ] && {
         for port in ${PORTS_PARAMETERS}; do
-            local bool1="0" bool2="0"
+            local bool1="0" bool2="0" string=""
+            [ -d "${PORTS_DIR_LIB}/DB/${port}" ] && {
+                string="status: installed\n"
+                while read line; do
+                    case "${line}" in
+                        V*)    string="${string}Version: ${line#*V}\n" ;;
+                        r*)    string="${string}Revision: ${line#*r}\n" ;;
+                    esac
+               done <$( echo ${PORTS_DIR_LIB}/DB/${port}/META)
+            } ||
+            {
+                string="status: not installed\n"
+            }
             while read line; do
                 case "${line}" in
                     :::START:::"${port}"*)
                         bool1=1
                         bool2=1
-                        line="#####----------------#\n${line#*:::START:::}\n##\n#"
+                        line="${line#*:::START:::}"
+                        line="Name: ${line%%:::*}\nCollection: ${line##*:::}"
+                        line="#####----------------#\n###\n##  SYSTEM STATUS\n##\n#####-------\n${line}"
+                        line="${line}\n${string}####-------------------\n#\n#  PKGFILE INFO\n#\n##------------"
                         ;;
                     :::END:::)
-                        [ "${bool1}" -eq "1" ]  && { echo "#----------------##" ; }
+                        [ "${bool1}" -eq "1" ]  && { echo "#----------------##\n" ; }
                         bool1=0
                         ;;
                 esac
-                [ "${bool1}" -eq "1" ]  && {
+                [ "${bool1}" -eq "1" ]  && [ "${#line}" -gt 0 ] && {
                     echo -e "${line}"
                 }
             done <$(echo ${PORTS_PKG_DB})
             [ "${bool2}" -eq "0" ]  && {
-                echo "« ${port##*/}»  is not a valid port, nothing to do."
+                echo "« ${port##*/}»  is not a valid port, no info can be found."
             }
         done
         return
